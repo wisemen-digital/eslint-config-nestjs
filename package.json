@@ -1,6 +1,6 @@
 {
   "name": "@wisemen/eslint-config-nestjs",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "",
   "main": "eslint.config.js",
   "type": "module",
@@ -10,7 +10,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
+  "peerDependencies": {
+    "eslint": "9.9.1"
+  },
+  "dependencies": {
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.9.1",
     "@stylistic/eslint-plugin": "^2.6.4",

@@ -1,27 +1,21 @@
-import globals from 'globals'
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
-import { FlatCompat } from '@eslint/eslintrc'
-
-const compat = new FlatCompat()
+import globals from 'globals'
 
 export default [
   {
-    files: ['**/*.{js,mjs,cjs,ts}']
-  },
-  {
-    languageOptions: { globals: globals.node }
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname
+      },
+      globals: {
+        ...globals.node
+      }
+    }
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
-  ...compat.config({
-    parserOptions: {
-      project: true
-    },
-    rules: {
-      '@typescript-eslint/strict-boolean-expressions': 'error'
-    }
-  }),
+  ...tseslint.configs.recommendedTypeChecked,
   {
     rules: {
       'no-undef': 'error',
@@ -29,7 +23,9 @@ export default [
       'curly': [
         'error', 'multi-line'
       ],
+      '@typescript-eslint/strict-boolean-expressions': 'error',
       '@typescript-eslint/no-extraneous-class': 'off',
+      '@typescript-eslint/no-import-type-side-effects': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -51,5 +47,15 @@ export default [
         'error', 'beside'
       ]
     }
+  },
+  {
+    files: ['**/*.js'],
+    ...tseslint.configs.disableTypeChecked
+  },
+  {
+    ignores: [
+      'dist',
+      'node_modules'
+    ]
   }
 ]
