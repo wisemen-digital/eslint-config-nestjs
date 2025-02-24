@@ -1,6 +1,9 @@
 import importX from 'eslint-plugin-import-x'
 
-export default [{
+/**
+ * @type {import('eslint').Linter.Config[]}
+ */
+const config = [{
   plugins: {
     import: importX
   },
@@ -16,3 +19,5 @@ export default [{
     'import/newline-after-import': 'error'
   }
 }]
+
+export default config

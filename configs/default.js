@@ -2,7 +2,10 @@ import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import globals from 'globals'
 
-export default [
+/**
+ * @type {import('eslint').Linter.Config[]}
+ */
+const config = [
   {
     languageOptions: {
       parserOptions: {
@@ -59,3 +62,5 @@ export default [
     ]
   }
 ]
+
+export default config
