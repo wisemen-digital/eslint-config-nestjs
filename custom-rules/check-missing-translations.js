@@ -1,10 +1,11 @@
 import { readFileSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
 
-const TRANSLATION_PATH = 'src/modules/localization/resources'
-const DOMAIN_EVENT_FILE = 'src/modules/domain-events/domain-event-type.ts'
-const PERMISSION_FILE = 'src/modules/permission/permission.enum.ts'
-const LOCALE_ENUM_FILE = 'src/modules/localization/enums/locale.enum.ts'
+// Default paths (can be overridden via options)
+const DEFAULT_TRANSLATION_PATH = 'src/modules/localization/resources'
+const DEFAULT_DOMAIN_EVENT_FILE = 'src/modules/domain-events/domain-event-type.ts'
+const DEFAULT_PERMISSION_FILE = 'src/modules/permission/permission.enum.ts'
+const DEFAULT_LOCALE_ENUM_FILE = 'src/modules/localization/enums/locale.enum.ts'
 
 let cachedLocales = null
 let cachedEventTypes = null
@@ -56,8 +57,8 @@ function parseEnumValues(fileContent, enumName) {
   return values
 }
 
-function getAvailableLocales() {
-  const localeFilePath = join(process.cwd(), LOCALE_ENUM_FILE)
+function getAvailableLocales(localeEnumFile = DEFAULT_LOCALE_ENUM_FILE) {
+  const localeFilePath = join(process.cwd(), localeEnumFile)
   
   if (cachedLocales && !isFileModified(localeFilePath)) {
     return cachedLocales
@@ -68,8 +69,8 @@ function getAvailableLocales() {
   return cachedLocales
 }
 
-function getPermissionTypes() {
-  const permissionsFilePath = join(process.cwd(), PERMISSION_FILE)
+function getPermissionTypes(permissionFile = DEFAULT_PERMISSION_FILE) {
+  const permissionsFilePath = join(process.cwd(), permissionFile)
   
   if (cachedPermissionTypes && !isFileModified(permissionsFilePath)) {
     return cachedPermissionTypes
@@ -80,8 +81,8 @@ function getPermissionTypes() {
   return cachedPermissionTypes
 }
 
-function getDomainEventTypes() {
-  const eventTypesFilePath = join(process.cwd(), DOMAIN_EVENT_FILE)
+function getDomainEventTypes(domainEventFile = DEFAULT_DOMAIN_EVENT_FILE) {
+  const eventTypesFilePath = join(process.cwd(), domainEventFile)
   
   if (cachedEventTypes && !isFileModified(eventTypesFilePath)) {
     return cachedEventTypes
@@ -92,8 +93,8 @@ function getDomainEventTypes() {
   return cachedEventTypes
 }
 
-function extractEventVersionsFromTranslations(locale) {
-  const translationFile = join(process.cwd(), TRANSLATION_PATH, locale, 'event-log.json')
+function extractEventVersionsFromTranslations(locale, translationPath = DEFAULT_TRANSLATION_PATH) {
+  const translationFile = join(process.cwd(), translationPath, locale, 'event-log.json')
   
   if (!existsSync(translationFile)) {
     cachedEventVersionsByLocale.set(locale, {})
@@ -137,8 +138,8 @@ function extractEventVersionsFromTranslations(locale) {
   }
 }
 
-function extractPermissionsFromTranslations(locale) {
-  const translationFile = join(process.cwd(), TRANSLATION_PATH, locale, 'permissions.json')
+function extractPermissionsFromTranslations(locale, translationPath = DEFAULT_TRANSLATION_PATH) {
+  const translationFile = join(process.cwd(), translationPath, locale, 'permissions.json')
   
   if (!existsSync(translationFile)) {
     cachedPermissionsByLocale.set(locale, new Set())
@@ -184,16 +185,23 @@ function extractPermissionsFromTranslations(locale) {
   }
 }
 
-function findMissingTranslations() {
-  const locales = getAvailableLocales()
-  const eventTypes = getDomainEventTypes()
-  const permissionTypes = getPermissionTypes()
+function findMissingTranslations(options = {}) {
+  const {
+    localeEnumFile = DEFAULT_LOCALE_ENUM_FILE,
+    domainEventFile = DEFAULT_DOMAIN_EVENT_FILE,
+    permissionFile = DEFAULT_PERMISSION_FILE,
+    translationPath = DEFAULT_TRANSLATION_PATH
+  } = options
+
+  const locales = getAvailableLocales(localeEnumFile)
+  const eventTypes = getDomainEventTypes(domainEventFile)
+  const permissionTypes = getPermissionTypes(permissionFile)
 
   const issues = []
 
   for (const locale of locales) {
-    const versionsByEvent = extractEventVersionsFromTranslations(locale)
-    const availablePermissions = extractPermissionsFromTranslations(locale)
+    const versionsByEvent = extractEventVersionsFromTranslations(locale, translationPath)
+    const availablePermissions = extractPermissionsFromTranslations(locale, translationPath)
 
     // Check domain events
     for (const eventType of eventTypes) {
@@ -218,7 +226,8 @@ function findMissingTranslations() {
           type: 'event', 
           key: eventType, 
           issues: eventIssues,
-          translationFile: 'event-log.json'
+          translationFile: 'event-log.json',
+          translationPath
         })
       }
     }
@@ -235,7 +244,8 @@ function findMissingTranslations() {
           type: 'permission', 
           key: permissionType, 
           issues: ['No translation found'],
-          translationFile: 'permissions.json'
+          translationFile: 'permissions.json',
+          translationPath
         })
       }
     }
@@ -256,6 +266,10 @@ const rule = {
         type: 'object',
         properties: {
           ignoreLocales: { type: 'array', items: { type: 'string' } },
+          translationPath: { type: 'string' },
+          domainEventFile: { type: 'string' },
+          permissionFile: { type: 'string' },
+          localeEnumFile: { type: 'string' },
         },
         additionalProperties: false,
       },
@@ -278,9 +292,9 @@ const rule = {
     return {
       Program(node) {
         // Recalculate missing translations on each run to detect file changes
-        const missingTranslations = findMissingTranslations()
+        const missingTranslations = findMissingTranslations(options)
         
-        for (const { locale, type, key, issues, translationFile } of missingTranslations) {
+        for (const { locale, type, key, issues, translationFile, translationPath } of missingTranslations) {
           if (ignored.has(locale)) continue
 
           // Only show domain event errors when linting domain-event-type.ts
@@ -290,7 +304,7 @@ const rule = {
           if (isPermissionFile && type !== 'permission') continue
 
           for (const issue of issues) {
-            const translationFilePath = join(process.cwd(), TRANSLATION_PATH, locale, translationFile)
+            const translationFilePath = join(process.cwd(), translationPath, locale, translationFile)
             const typeLabel = type === 'event' ? 'domain event' : 'permission'
             
             context.report({
