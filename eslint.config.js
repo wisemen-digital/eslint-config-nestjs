@@ -3,6 +3,7 @@ import unusedImports from './configs/unused-imports.js'
 import style from './configs/style.js'
 import defaultConfig from './configs/default.js'
 import overrides from './configs/overrides.js'
+import missingTranslations from './configs/missing-translations.js'
 
 /**
  * @type {import('eslint').Linter.Config[]}
@@ -12,7 +13,8 @@ const config = [
   ...style,
   ...unusedImports,
   ...importX,
-  ...overrides
+  ...overrides,
+  ...missingTranslations
 ]
 
 export default config
