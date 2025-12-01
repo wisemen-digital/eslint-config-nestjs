@@ -1,4 +1,4 @@
-import { checkMissingTranslations } from '../custom-rules/check-missing-translations.js'
+import checkMissingTranslations from '../custom-rules/check-missing-translations.js'
 
 export default [
  {
