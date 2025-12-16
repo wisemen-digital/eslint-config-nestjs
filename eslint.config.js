@@ -14,7 +14,6 @@ const config = [
   ...unusedImports,
   ...importX,
   ...overrides,
-  ...missingTranslations,
   ...customRules
 ]
 
