@@ -3,8 +3,7 @@ import unusedImports from './configs/unused-imports.js'
 import style from './configs/style.js'
 import defaultConfig from './configs/default.js'
 import overrides from './configs/overrides.js'
-import missingTranslations from './configs/missing-translations.js'
-import checkApiPropertyTypes from './configs/check-api-property-types.js'
+import customRules from './configs/custom-rules.js'
 
 /**
  * @type {import('eslint').Linter.Config[]}
@@ -16,7 +15,7 @@ const config = [
   ...importX,
   ...overrides,
   ...missingTranslations,
-  ...checkApiPropertyTypes
+  ...customRules
 ]
 
 export default config
