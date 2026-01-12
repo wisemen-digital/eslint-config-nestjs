@@ -1,6 +1,6 @@
 {
   "name": "@wisemen/eslint-config-nestjs",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "",
   "main": "eslint.config.js",
   "type": "module",
