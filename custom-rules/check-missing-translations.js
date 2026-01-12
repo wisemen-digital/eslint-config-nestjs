@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { readFileSync, existsSync, statSync } from 'fs'
 import { join } from 'path'
 
@@ -14,7 +15,7 @@ const cachedEventVersionsByLocale = new Map()
 const cachedPermissionsByLocale = new Map()
 const fileModificationTimes = new Map()
 
-function safeReadFile(filePath) {
+function safeReadFile (filePath) {
   try {
     return readFileSync(filePath, 'utf8')
   } catch {
@@ -22,7 +23,7 @@ function safeReadFile(filePath) {
   }
 }
 
-function getFileModificationTime(filePath) {
+function getFileModificationTime (filePath) {
   try {
     return statSync(filePath).mtime.getTime()
   } catch {
@@ -30,74 +31,85 @@ function getFileModificationTime(filePath) {
   }
 }
 
-function isFileModified(filePath) {
+function isFileModified (filePath) {
   const currentMtime = getFileModificationTime(filePath)
   const cachedMtime = fileModificationTimes.get(filePath) || 0
-  
+
   if (currentMtime > cachedMtime) {
     fileModificationTimes.set(filePath, currentMtime)
+
     return true
   }
-  
+
   return false
 }
 
-function parseEnumValues(fileContent, enumName) {
+function parseEnumValues (fileContent, enumName) {
   if (!fileContent) return []
   const regex = new RegExp(`export\\s+enum\\s+${enumName}\\s*{([^}]+)}`, 's')
   const match = fileContent.match(regex)
+
   if (!match) return []
 
   const body = match[1]
   const values = []
+
   // Matches something like: NAME = 'value',
   for (const m of body.matchAll(/\w+\s*=\s*['"`]([^'"`]+)['"`]/g)) {
     values.push(m[1])
   }
+
   return values
 }
 
-function getAvailableLocales(localeEnumFile = DEFAULT_LOCALE_ENUM_FILE) {
+function getAvailableLocales (localeEnumFile = DEFAULT_LOCALE_ENUM_FILE) {
   const localeFilePath = join(process.cwd(), localeEnumFile)
-  
+
   if (cachedLocales && !isFileModified(localeFilePath)) {
     return cachedLocales
   }
 
   const content = safeReadFile(localeFilePath)
+
   cachedLocales = parseEnumValues(content, 'Locale')
+
   return cachedLocales
 }
 
-function getPermissionTypes(permissionFile = DEFAULT_PERMISSION_FILE) {
+function getPermissionTypes (permissionFile = DEFAULT_PERMISSION_FILE) {
   const permissionsFilePath = join(process.cwd(), permissionFile)
-  
+
   if (cachedPermissionTypes && !isFileModified(permissionsFilePath)) {
     return cachedPermissionTypes
   }
 
   const content = safeReadFile(permissionsFilePath)
+
   cachedPermissionTypes = parseEnumValues(content, 'Permission')
+
   return cachedPermissionTypes
 }
 
-function getDomainEventTypes(domainEventFile = DEFAULT_DOMAIN_EVENT_FILE) {
+function getDomainEventTypes (domainEventFile = DEFAULT_DOMAIN_EVENT_FILE) {
   const eventTypesFilePath = join(process.cwd(), domainEventFile)
-  
+
   if (cachedEventTypes && !isFileModified(eventTypesFilePath)) {
     return cachedEventTypes
   }
 
   const content = safeReadFile(eventTypesFilePath)
+
   cachedEventTypes = parseEnumValues(content, 'DomainEventType')
+
   return cachedEventTypes
 }
 
-function extractEventVersionsFromTranslations(locale, translationPath = DEFAULT_TRANSLATION_PATH) {
+function extractEventVersionsFromTranslations (locale, translationPath = DEFAULT_TRANSLATION_PATH) {
   const translationFile = join(process.cwd(), translationPath, locale, 'event-log.json')
-  
+
   if (!existsSync(translationFile)) {
     cachedEventVersionsByLocale.set(locale, {})
+
     return {}
   }
 
@@ -110,15 +122,18 @@ function extractEventVersionsFromTranslations(locale, translationPath = DEFAULT_
     const content = JSON.parse(readFileSync(translationFile, 'utf8'))
     const eventVersions = {}
 
-    function recurse(obj, prefix = '') {
+    function recurse (obj, prefix = '') {
       for (const [key, value] of Object.entries(obj)) {
         const currentPath = prefix ? `${prefix}.${key}` : key
 
         if (key.startsWith('v') && typeof value === 'string') {
           const versionNum = parseInt(key.slice(1), 10)
+
           if (Number.isInteger(versionNum)) {
             const eventType = prefix
+
             if (!eventVersions[eventType]) eventVersions[eventType] = []
+
             eventVersions[eventType].push(versionNum)
           }
         } else if (typeof value === 'object' && value !== null) {
@@ -129,20 +144,23 @@ function extractEventVersionsFromTranslations(locale, translationPath = DEFAULT_
 
     recurse(content)
     cachedEventVersionsByLocale.set(locale, eventVersions)
+
     return eventVersions
   } catch (err) {
     // Return empty but log once for visibility
     console.warn(`[eslint-translation-rule] Failed to parse ${translationFile}: ${err.message}`)
     cachedEventVersionsByLocale.set(locale, {})
+
     return {}
   }
 }
 
-function extractPermissionsFromTranslations(locale, translationPath = DEFAULT_TRANSLATION_PATH) {
+function extractPermissionsFromTranslations (locale, translationPath = DEFAULT_TRANSLATION_PATH) {
   const translationFile = join(process.cwd(), translationPath, locale, 'permissions.json')
-  
+
   if (!existsSync(translationFile)) {
     cachedPermissionsByLocale.set(locale, new Set())
+
     return new Set()
   }
 
@@ -155,7 +173,7 @@ function extractPermissionsFromTranslations(locale, translationPath = DEFAULT_TR
     const content = JSON.parse(readFileSync(translationFile, 'utf8'))
     const permissions = new Set()
 
-    function recurse(obj, prefix = '') {
+    function recurse (obj, prefix = '') {
       for (const [key, value] of Object.entries(obj)) {
         const currentPath = prefix ? `${prefix}.${key}` : key
 
@@ -176,16 +194,17 @@ function extractPermissionsFromTranslations(locale, translationPath = DEFAULT_TR
 
     recurse(content)
     cachedPermissionsByLocale.set(locale, permissions)
+
     return permissions
   } catch (err) {
-    // Return empty but log once for visibility
     console.warn(`[eslint-translation-rule] Failed to parse ${translationFile}: ${err.message}`)
     cachedPermissionsByLocale.set(locale, new Set())
+
     return new Set()
   }
 }
 
-function findMissingTranslations(options = {}) {
+function findMissingTranslations (options = {}) {
   const {
     localeEnumFile = DEFAULT_LOCALE_ENUM_FILE,
     domainEventFile = DEFAULT_DOMAIN_EVENT_FILE,
@@ -215,16 +234,17 @@ function findMissingTranslations(options = {}) {
         if (!versions.includes(1)) eventIssues.push('Missing v1 translation')
 
         const maxVersion = Math.max(...versions)
+
         for (let v = 1; v <= maxVersion; v++) {
           if (!versions.includes(v)) eventIssues.push(`Missing v${v} translation`)
         }
       }
 
       if (eventIssues.length > 0) {
-        issues.push({ 
-          locale, 
-          type: 'event', 
-          key: eventType, 
+        issues.push({
+          locale,
+          type: 'event',
+          key: eventType,
           issues: eventIssues,
           translationFile: 'event-log.json',
           translationPath
@@ -237,12 +257,12 @@ function findMissingTranslations(options = {}) {
       // Convert permission enum value to translation key format
       // e.g., 'contact.create' stays 'contact.create', 'all_permissions' stays 'all_permissions'
       const translationKey = permissionType.replace(/_/g, '_') // Keep underscores for special permissions
-      
+
       if (!availablePermissions.has(translationKey)) {
-        issues.push({ 
-          locale, 
-          type: 'permission', 
-          key: permissionType, 
+        issues.push({
+          locale,
+          type: 'permission',
+          key: permissionType,
           issues: ['No translation found'],
           translationFile: 'permissions.json',
           translationPath
@@ -259,7 +279,7 @@ const rule = {
     type: 'problem',
     docs: {
       description: 'Ensure all domain events and permissions have translations in all locales',
-      category: 'Possible Errors',
+      category: 'Possible Errors'
     },
     schema: [
       {
@@ -269,14 +289,14 @@ const rule = {
           translationPath: { type: 'string' },
           domainEventFile: { type: 'string' },
           permissionFile: { type: 'string' },
-          localeEnumFile: { type: 'string' },
+          localeEnumFile: { type: 'string' }
         },
-        additionalProperties: false,
-      },
-    ],
+        additionalProperties: false
+      }
+    ]
   },
 
-  create(context) {
+  create (context) {
     const filename = context.getFilename()
     const options = context.options[0] || {}
     const ignored = new Set(options.ignoreLocales || [])
@@ -290,32 +310,40 @@ const rule = {
     }
 
     return {
-      Program(node) {
+      Program (node) {
         // Recalculate missing translations on each run to detect file changes
         const missingTranslations = findMissingTranslations(options)
-        
-        for (const { locale, type, key, issues, translationFile, translationPath } of missingTranslations) {
+
+        for (const missingTranslation of missingTranslations) {
+          const { locale, type, key, issues, translationFile, translationPath } = missingTranslation
+
           if (ignored.has(locale)) continue
 
           // Only show domain event errors when linting domain-event-type.ts
           if (isDomainEventFile && type !== 'event') continue
-          
+
           // Only show permission errors when linting permission.enum.ts
           if (isPermissionFile && type !== 'permission') continue
 
           for (const issue of issues) {
-            const translationFilePath = join(process.cwd(), translationPath, locale, translationFile)
+            const translationFilePath = join(
+              process.cwd(),
+              translationPath,
+              locale,
+              translationFile
+            )
+
             const typeLabel = type === 'event' ? 'domain event' : 'permission'
-            
+
             context.report({
               node,
-              message: `Missing translation for ${typeLabel} "${key}" in locale "${locale}": ${issue}. Please add to ${translationFilePath}. Or use npx @wisemen/ngen to auto-generate missing translation keys.`,
+              message: `Missing translation for ${typeLabel} "${key}" in locale "${locale}": ${issue}. Please add to ${translationFilePath}. Or use npx @wisemen/ngen to auto-generate missing translation keys.`
             })
           }
         }
-      },
+      }
     }
-  },
+  }
 }
 
 export default rule

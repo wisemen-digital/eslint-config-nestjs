@@ -36,6 +36,7 @@ export default {
      */
     function isTargetClass (className) {
       if (!className) return false
+
       return className.endsWith('Response')
         || className.endsWith('Command')
         || className.endsWith('Query')
@@ -66,6 +67,7 @@ export default {
       }
 
       traverse(typeAnnotation)
+
       return result
     }
 
@@ -117,6 +119,7 @@ export default {
     function checkPropertyDefinition (node) {
       // Only check properties with @ApiProperty decorator
       const apiPropertyOptions = getApiPropertyOptions(node.decorators)
+
       if (!apiPropertyOptions) {
         return
       }

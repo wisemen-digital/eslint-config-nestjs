@@ -23,16 +23,16 @@ export default {
     schema: []
   },
 
-  create(context) {
+  create (context) {
     /**
      * Parse TypeScript type annotation to check for null and undefined
      */
-    function parseTypeAnnotation(typeAnnotation) {
+    function parseTypeAnnotation (typeAnnotation) {
       if (!typeAnnotation) return { hasNull: false }
 
       const result = { hasNull: false }
 
-      function traverse(node) {
+      function traverse (node) {
         if (!node) return
 
         // Handle union types (e.g., string | null | undefined)
@@ -46,13 +46,14 @@ export default {
       }
 
       traverse(typeAnnotation)
+
       return result
     }
 
     /**
      * Extract @Column decorator options
      */
-    function getColumnOptions(decorators) {
+    function getColumnOptions (decorators) {
       if (!decorators) {
         return null
       }
@@ -93,9 +94,10 @@ export default {
     /**
      * Check a class property for type/decorator consistency
      */
-    function checkPropertyDefinition(node) {
+    function checkPropertyDefinition (node) {
       // Only check properties with @Column decorator
       const columnOptions = getColumnOptions(node.decorators)
+
       if (!columnOptions) {
         return
       }
@@ -119,7 +121,7 @@ export default {
     }
 
     return {
-      ClassDeclaration(node) {
+      ClassDeclaration (node) {
         const className = node.id?.name
 
         for (const member of node.body.body) {
