@@ -1,6 +1,7 @@
+/* eslint-disable import-typescript/no-relative-parent-imports */
+import checkColumnTypes from '../custom-rules/check-column-types.js'
 import checkMissingTranslations from '../custom-rules/check-missing-translations.js'
 import checkApiPropertyTypes from '../custom-rules/check-api-property-types.js'
-import checkColumnTypes from '../custom-rules/check-column-types.js'
 
 export default [
   {
@@ -18,5 +19,5 @@ export default [
       'custom-rules/check-api-property-types': 'error',
       'custom-rules/check-column-types': 'error'
     }
-  },
+  }
 ]
