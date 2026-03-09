@@ -25,7 +25,9 @@ export default {
       unnecessaryNullable: '@ApiProperty has `nullable: true` but property type does not include null',
       unnecessaryRequired: '@ApiProperty has `required: false` but property type does not include undefined',
       missingBothNullableRequired: 'Property type includes null and undefined but @ApiProperty is missing both `nullable: true` and `required: false`',
-      unnecessaryBothNullableRequired: '@ApiProperty has both `nullable: true` and `required: false` but property type does not include both null and undefined'
+      unnecessaryBothNullableRequired: '@ApiProperty has both `nullable: true` and `required: false` but property type does not include both null and undefined',
+      missingIsArray: 'Property type is an array but @ApiProperty is missing `isArray: true`',
+      unnecessaryIsArray: '@ApiProperty has `isArray: true` but property type is not an array'
     },
     schema: []
   },
@@ -36,6 +38,7 @@ export default {
      */
     function isTargetClass (className) {
       if (!className) return false
+
       return className.endsWith('Response')
         || className.endsWith('Command')
         || className.endsWith('Query')
@@ -46,9 +49,9 @@ export default {
      * Parse TypeScript type annotation to check for null and undefined
      */
     function parseTypeAnnotation (typeAnnotation) {
-      if (!typeAnnotation) return { hasNull: false, hasUndefined: false }
+      if (!typeAnnotation) return { hasNull: false, hasUndefined: false, hasArray: false }
 
-      const result = { hasNull: false, hasUndefined: false }
+      const result = { hasNull: false, hasUndefined: false, hasArray: false }
 
       function traverse (node) {
         if (!node) return
@@ -58,6 +61,22 @@ export default {
           for (const type of node.types) {
             traverse(type)
           }
+        } else if (node.type === 'TSArrayType') {
+          result.hasArray = true
+          traverse(node.elementType)
+        } else if (node.type === 'TSTypeReference') {
+          const typeName = node.typeName
+          const isArrayRef = typeName?.type === 'Identifier' && typeName.name === 'Array'
+
+          if (isArrayRef) {
+            result.hasArray = true
+            const typeParams = node.typeParameters
+            if (typeParams?.params?.length) {
+              for (const param of typeParams.params) {
+                traverse(param)
+              }
+            }
+          }
         } else if (node.type === 'TSNullKeyword') {
           result.hasNull = true
         } else if (node.type === 'TSUndefinedKeyword') {
@@ -66,6 +85,7 @@ export default {
       }
 
       traverse(typeAnnotation)
+
       return result
     }
 
@@ -89,7 +109,7 @@ export default {
             const options = decorator.expression.arguments[0]
 
             if (options.type === 'ObjectExpression') {
-              const result = { nullable: false, required: true }
+              const result = { nullable: false, required: true, isArray: false }
 
               for (const prop of options.properties) {
                 if (prop.type === 'Property' && prop.key.type === 'Identifier') {
@@ -98,6 +118,9 @@ export default {
                   }
                   if (prop.key.name === 'required' && prop.value.type === 'Literal') {
                     result.required = prop.value.value !== false
+                  }
+                  if (prop.key.name === 'isArray' && prop.value.type === 'Literal') {
+                    result.isArray = prop.value.value === true
                   }
                 }
               }
@@ -117,6 +140,7 @@ export default {
     function checkPropertyDefinition (node) {
       // Only check properties with @ApiProperty decorator
       const apiPropertyOptions = getApiPropertyOptions(node.decorators)
+
       if (!apiPropertyOptions) {
         return
       }
@@ -124,8 +148,8 @@ export default {
       // Parse the TypeScript type annotation
       const typeInfo = parseTypeAnnotation(node.typeAnnotation?.typeAnnotation)
 
-      const { hasNull, hasUndefined } = typeInfo
-      const { nullable, required } = apiPropertyOptions
+      const { hasNull, hasUndefined, hasArray } = typeInfo
+      const { nullable, required, isArray } = apiPropertyOptions
 
       // Check if property uses optional syntax (?:) which implicitly adds undefined
       const typeHasUndefined = hasUndefined || node.optional === true
@@ -138,6 +162,8 @@ export default {
       const hasNullable = nullable
       const needsRequired = typeHasUndefined
       const hasRequired = !required
+      const needsArray = hasArray
+      const hasIsArray = isArray
 
       // Check if both null and undefined are needed/present
       if (needsNullable && needsRequired) {
@@ -164,6 +190,12 @@ export default {
           // Only report unnecessaryRequired if there's no default value
           context.report({ node, messageId: 'unnecessaryRequired' })
         }
+      }
+
+      if (needsArray && !hasIsArray) {
+        context.report({ node, messageId: 'missingIsArray' })
+      } else if (!needsArray && hasIsArray) {
+        context.report({ node, messageId: 'unnecessaryIsArray' })
       }
     }
 

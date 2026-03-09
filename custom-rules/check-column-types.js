@@ -4,6 +4,8 @@
  * Checks:
  * - If type includes `null`, @Column must have `nullable: true`
  * - If @Column has `nullable: true`, type must include `null`
+ * - If @Column has a `default` value, type must be wrapped in `Default<>`
+ * - If @Column has no `default` value, type must not be wrapped in `Default<>`
  *
  * Applies to classes ending with: Column
  */
@@ -19,7 +21,8 @@ export default {
     messages: {
       missingNullable: 'Property type includes null but @Column is missing `nullable: true`',
       unnecessaryNullable: '@Column has `nullable: true` but property type does not include null',
-      missingDefault: '@Column has a `default` value but property type is not wrapped in Default'
+      missingDefault: '@Column has a `default` value but property type is not wrapped in Default',
+      unnecessaryDefault: 'Property type is wrapped in Default but @Column has no `default` value'
     },
     schema: []
   },
@@ -55,6 +58,7 @@ export default {
       }
 
       traverse(typeAnnotation)
+
       return result
     }
 
@@ -129,6 +133,7 @@ export default {
     function checkPropertyDefinition(node) {
       // Only check properties with @Column decorator
       const columnOptions = getColumnOptions(node.decorators)
+
       if (!columnOptions) {
         return
       }
@@ -152,6 +157,8 @@ export default {
 
       if (hasDefault && !isWrappedInDefault) {
         context.report({ node, messageId: 'missingDefault' })
+      } else if (!hasDefault && isWrappedInDefault) {
+        context.report({ node, messageId: 'unnecessaryDefault' })
       }
     }
 

@@ -1,6 +1,8 @@
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import globals from 'globals'
+import unicorn from 'eslint-plugin-unicorn'
+import eslintImportTypescript from 'eslint-plugin-import-typescript'
 
 /**
  * @type {import('eslint').Linter.Config[]}
@@ -58,8 +60,57 @@ const config = [
   {
     ignores: [
       'dist',
-      'node_modules'
+      'node_modules',
+      'src/modules/localization/generated/i18n.generated.ts'
     ]
+  },
+  {
+    plugins: {
+      unicorn
+    },
+    rules: {
+      'unicorn/filename-case': [
+        'error',
+        {
+          case: 'kebabCase'
+        }
+      ]
+    }
+  },
+  {
+    rules: {
+      '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+      '@stylistic/padding-line-between-statements': ['off'],
+      'import/order': [
+        'error',
+        {
+          pathGroups: [
+            {
+              pattern: '#src/utils/opentelemetry/otel-*-sdk.js',
+              group: 'builtin',
+              position: 'before'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    files: ['**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      'no-magic-numbers': 'off'
+    }
+  },
+  {
+    plugins: {
+      'import-typescript': eslintImportTypescript
+    },
+    rules: {
+      'import-typescript/no-relative-parent-imports': [
+        'error', { onlyPathsImport: true }
+      ]
+    }
   }
 ]
 
