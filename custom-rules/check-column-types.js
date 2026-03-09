@@ -21,7 +21,7 @@ export default {
     messages: {
       missingNullable: 'Property type includes null but @Column is missing `nullable: true`',
       unnecessaryNullable: '@Column has `nullable: true` but property type does not include null',
-      missingDefault: '@Column has a `default` value but property type is not wrapped in Default',
+      missingDefault: 'Column decorator requires property type to be wrapped in Default',
       unnecessaryDefault: 'Property type is wrapped in Default but @Column has no `default` value'
     },
     schema: []
@@ -82,6 +82,12 @@ export default {
         return null
       }
 
+      const decoratorsThatAlwaysNeedDefault = new Set([
+        'PrimaryGeneratedColumn',
+        'CreateDateColumn',
+        'UpdateDateColumn'
+      ])
+
       for (const decorator of decorators) {
         if (decorator.expression.type === 'CallExpression') {
           const callee = decorator.expression.callee
@@ -92,12 +98,23 @@ export default {
             && callee.name !== 'JoinColumn'
             && callee.name !== 'DeleteDateColumn'
 
-          if (isColumn && decorator.expression.arguments.length > 0) {
+          const needsDefaultWrapper = callee.type === 'Identifier'
+            && decoratorsThatAlwaysNeedDefault.has(callee.name)
+
+          if (isColumn) {
+            const result = {
+              nullable: false,
+              hasDefault: false,
+              needsDefaultWrapper
+            }
+
+            if (decorator.expression.arguments.length === 0) {
+              return result
+            }
+
             const options = decorator.expression.arguments[0]
 
             if (options.type === 'ObjectExpression') {
-              const result = { nullable: false, hasDefault: false }
-
               for (const prop of options.properties) {
                 if (prop.type !== 'Property') {
                   continue
@@ -117,9 +134,9 @@ export default {
                   result.hasDefault = true
                 }
               }
-
-              return result
             }
+
+            return result
           }
         }
       }
@@ -142,7 +159,7 @@ export default {
       const typeInfo = parseTypeAnnotation(node.typeAnnotation?.typeAnnotation)
 
       const { hasNull, isWrappedInDefault } = typeInfo
-      const { nullable, hasDefault } = columnOptions
+      const { nullable, hasDefault, needsDefaultWrapper } = columnOptions
 
       // Check all four combinations for comprehensive validation
       const needsNullable = hasNull
@@ -155,9 +172,11 @@ export default {
         context.report({ node, messageId: 'unnecessaryNullable' })
       }
 
-      if (hasDefault && !isWrappedInDefault) {
+      const requiresDefaultWrapper = hasDefault || needsDefaultWrapper
+
+      if (requiresDefaultWrapper && !isWrappedInDefault) {
         context.report({ node, messageId: 'missingDefault' })
-      } else if (!hasDefault && isWrappedInDefault) {
+      } else if (!requiresDefaultWrapper && isWrappedInDefault) {
         context.report({ node, messageId: 'unnecessaryDefault' })
       }
     }
