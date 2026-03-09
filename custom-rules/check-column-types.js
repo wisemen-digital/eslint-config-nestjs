@@ -172,11 +172,11 @@ export default {
         context.report({ node, messageId: 'unnecessaryNullable' })
       }
 
-      const requiresDefaultWrapper = hasDefault || needsDefaultWrapper
+      const requiresDefaultWrapper = !hasNull && (hasDefault || needsDefaultWrapper)
 
       if (requiresDefaultWrapper && !isWrappedInDefault) {
         context.report({ node, messageId: 'missingDefault' })
-      } else if (!requiresDefaultWrapper && isWrappedInDefault) {
+      } else if (!requiresDefaultWrapper && !hasNull && isWrappedInDefault) {
         context.report({ node, messageId: 'unnecessaryDefault' })
       }
     }
