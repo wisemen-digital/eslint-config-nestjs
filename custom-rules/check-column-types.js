@@ -18,7 +18,8 @@ export default {
     },
     messages: {
       missingNullable: 'Property type includes null but @Column is missing `nullable: true`',
-      unnecessaryNullable: '@Column has `nullable: true` but property type does not include null'
+      unnecessaryNullable: '@Column has `nullable: true` but property type does not include null',
+      missingDefault: '@Column has a `default` value but property type is not wrapped in Default'
     },
     schema: []
   },
@@ -28,9 +29,17 @@ export default {
      * Parse TypeScript type annotation to check for null and undefined
      */
     function parseTypeAnnotation(typeAnnotation) {
-      if (!typeAnnotation) return { hasNull: false }
+      if (!typeAnnotation) return { hasNull: false, isWrappedInDefault: false }
 
-      const result = { hasNull: false }
+      const result = { hasNull: false, isWrappedInDefault: false }
+
+      if (
+        typeAnnotation.type === 'TSTypeReference'
+        && typeAnnotation.typeName.type === 'Identifier'
+        && typeAnnotation.typeName.name === 'Default'
+      ) {
+        result.isWrappedInDefault = true
+      }
 
       function traverse(node) {
         if (!node) return
@@ -47,6 +56,18 @@ export default {
 
       traverse(typeAnnotation)
       return result
+    }
+
+    function isUndefinedExpression(node) {
+      if (!node) {
+        return true
+      }
+
+      if (node.type === 'Identifier' && node.name === 'undefined') {
+        return true
+      }
+
+      return node.type === 'UnaryExpression' && node.operator === 'void'
     }
 
     /**
@@ -71,13 +92,25 @@ export default {
             const options = decorator.expression.arguments[0]
 
             if (options.type === 'ObjectExpression') {
-              const result = { nullable: false, required: true }
+              const result = { nullable: false, hasDefault: false }
 
               for (const prop of options.properties) {
-                if (prop.type === 'Property' && prop.key.type === 'Identifier') {
-                  if (prop.key.name === 'nullable' && prop.value.type === 'Literal') {
-                    result.nullable = prop.value.value === true
-                  }
+                if (prop.type !== 'Property') {
+                  continue
+                }
+
+                const keyName = prop.key.type === 'Identifier'
+                  ? prop.key.name
+                  : prop.key.type === 'Literal'
+                    ? prop.key.value
+                    : null
+
+                if (keyName === 'nullable' && prop.value.type === 'Literal') {
+                  result.nullable = prop.value.value === true
+                }
+
+                if (keyName === 'default' && !isUndefinedExpression(prop.value)) {
+                  result.hasDefault = true
                 }
               }
 
@@ -103,8 +136,8 @@ export default {
       // Parse the TypeScript type annotation
       const typeInfo = parseTypeAnnotation(node.typeAnnotation?.typeAnnotation)
 
-      const { hasNull } = typeInfo
-      const { nullable } = columnOptions
+      const { hasNull, isWrappedInDefault } = typeInfo
+      const { nullable, hasDefault } = columnOptions
 
       // Check all four combinations for comprehensive validation
       const needsNullable = hasNull
@@ -115,6 +148,10 @@ export default {
         context.report({ node, messageId: 'missingNullable' })
       } else if (!needsNullable && hasNullable) {
         context.report({ node, messageId: 'unnecessaryNullable' })
+      }
+
+      if (hasDefault && !isWrappedInDefault) {
+        context.report({ node, messageId: 'missingDefault' })
       }
     }
 
